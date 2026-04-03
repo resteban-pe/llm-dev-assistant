@@ -4,9 +4,10 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.111+-009688?logo=fastapi&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 ![Claude API](https://img.shields.io/badge/Claude-claude--sonnet--4--6-blueviolet?logo=anthropic&logoColor=white)
+![OpenAI](https://img.shields.io/badge/OpenAI-gpt--4o-412991?logo=openai&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-AI-powered microservice that generates production-ready Java code — Spring Boot project structure, JUnit 5 tests, OpenAPI 3.0 documentation, and Clean Architecture reviews — via REST endpoints backed by the Claude API.
+AI-powered microservice that generates production-ready Java code — Spring Boot project structure, JUnit 5 tests, OpenAPI 3.0 documentation, and Clean Architecture reviews — via REST endpoints. Supports **Anthropic** and **OpenAI** as interchangeable LLM providers, configured via environment variable.
 
 ---
 
@@ -25,13 +26,38 @@ Client Request
 │  ┌────▼────────────▼─────┐  │
 │  │  System Prompt (.md)  │  │
 │  └──────────┬────────────┘  │
+│  ┌──────────▼────────────┐  │
+│  │      LLMProvider      │  │
+│  │  Anthropic │  OpenAI  │  │
+│  └──────────┬────────────┘  │
 └─────────────┼───────────────┘
               │
               ▼
-      Claude API (claude-sonnet-4-6)
+     LLM_PROVIDER API
               │
               ▼
      { "result": "...", "tokens_used": N }
+```
+
+---
+
+## LLM Provider Configuration
+
+Switch between providers with a single environment variable — no code changes required.
+
+| `LLM_PROVIDER` | Model | Required key |
+|----------------|-------|--------------|
+| `anthropic` (default) | `claude-sonnet-4-6` | `ANTHROPIC_API_KEY` |
+| `openai` | `gpt-4o` | `OPENAI_API_KEY` |
+
+```bash
+# Use Anthropic (default)
+LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Use OpenAI
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-...
 ```
 
 ---
@@ -71,7 +97,7 @@ cd llm-dev-assistant
 
 # 2. Configure your API key
 cp .env.example .env
-# Edit .env and set ANTHROPIC_API_KEY=sk-ant-...
+# Edit .env: set LLM_PROVIDER and the corresponding API key
 
 # 3. Build and run
 docker compose up -d
@@ -89,7 +115,7 @@ pip install -r requirements.txt
 
 # 2. Configure your API key
 cp .env.example .env
-# Edit .env and set ANTHROPIC_API_KEY=sk-ant-...
+# Edit .env: set LLM_PROVIDER and the corresponding API key
 
 # 3. Run
 uvicorn app.main:app --reload --port 8083
@@ -254,7 +280,8 @@ These prompts were developed as part of the [ai-dev-prompts-library](https://git
 ```
 llm-dev-assistant/
 ├── app/
-│   ├── config.py          ← API key, shared Claude client, model constants
+│   ├── config.py          ← provider selection, shared llm_provider instance
+│   ├── llm_provider.py    ← LLMProvider (abstract) + AnthropicProvider + OpenAIProvider
 │   ├── main.py            ← FastAPI app, CORS, router registration
 │   └── routers/
 │       ├── generate.py    ← /generate/structure, /generate/tests, /generate/docs

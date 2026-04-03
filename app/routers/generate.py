@@ -2,9 +2,9 @@ import logging
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, field_validator
-import anthropic
 
-from app.config import claude_client, CLAUDE_MODEL, CLAUDE_MAX_TOKENS, CLAUDE_TIMEOUT
+from app.config import llm_provider
+from app.llm_provider import LLMTimeoutError
 
 logger = logging.getLogger(__name__)
 
@@ -74,22 +74,15 @@ class GenerateResponse(BaseModel):
 def generate_structure(req: StructureRequest):
     logger.info("generate_structure | project=%s", req.project_name)
     try:
-        message = claude_client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=CLAUDE_MAX_TOKENS,
-            timeout=CLAUDE_TIMEOUT,
+        result, tokens = llm_provider.complete(
             system=PROMPT_STRUCTURE,
-            messages=[{
-                "role": "user",
-                "content": f"Project: {req.project_name}\nDomain: {req.domain_description}"
-            }]
+            user=f"Project: {req.project_name}\nDomain: {req.domain_description}",
         )
-        tokens = message.usage.input_tokens + message.usage.output_tokens
         logger.info("generate_structure | tokens_used=%d", tokens)
-        return GenerateResponse(result=message.content[0].text, tokens_used=tokens)
-    except anthropic.APITimeoutError:
-        logger.error("generate_structure | timeout after %.1fs", CLAUDE_TIMEOUT)
-        raise HTTPException(status_code=504, detail="La API de Claude no respondió a tiempo.")
+        return GenerateResponse(result=result, tokens_used=tokens)
+    except LLMTimeoutError:
+        logger.error("generate_structure | timeout")
+        raise HTTPException(status_code=504, detail="El proveedor LLM no respondió a tiempo.")
     except Exception as e:
         logger.error("generate_structure | error=%s", e)
         raise HTTPException(status_code=500, detail="Error interno al generar la estructura.")
@@ -99,22 +92,15 @@ def generate_structure(req: StructureRequest):
 def generate_tests(req: TestsRequest):
     logger.info("generate_tests | class=%s", req.class_name)
     try:
-        message = claude_client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=CLAUDE_MAX_TOKENS,
-            timeout=CLAUDE_TIMEOUT,
+        result, tokens = llm_provider.complete(
             system=PROMPT_TESTS,
-            messages=[{
-                "role": "user",
-                "content": f"Class name: {req.class_name}\n\n{req.java_class}"
-            }]
+            user=f"Class name: {req.class_name}\n\n{req.java_class}",
         )
-        tokens = message.usage.input_tokens + message.usage.output_tokens
         logger.info("generate_tests | tokens_used=%d", tokens)
-        return GenerateResponse(result=message.content[0].text, tokens_used=tokens)
-    except anthropic.APITimeoutError:
-        logger.error("generate_tests | timeout after %.1fs", CLAUDE_TIMEOUT)
-        raise HTTPException(status_code=504, detail="La API de Claude no respondió a tiempo.")
+        return GenerateResponse(result=result, tokens_used=tokens)
+    except LLMTimeoutError:
+        logger.error("generate_tests | timeout")
+        raise HTTPException(status_code=504, detail="El proveedor LLM no respondió a tiempo.")
     except Exception as e:
         logger.error("generate_tests | error=%s", e)
         raise HTTPException(status_code=500, detail="Error interno al generar los tests.")
@@ -125,22 +111,15 @@ def generate_docs(req: DocsRequest):
     logger.info("generate_docs | api_title=%s endpoints=%d", req.api_title, len(req.endpoints))
     try:
         endpoints_text = "\n".join(f"- {ep}" for ep in req.endpoints)
-        message = claude_client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=CLAUDE_MAX_TOKENS,
-            timeout=CLAUDE_TIMEOUT,
+        result, tokens = llm_provider.complete(
             system=PROMPT_DOCS,
-            messages=[{
-                "role": "user",
-                "content": f"API Title: {req.api_title}\n\nEndpoints:\n{endpoints_text}"
-            }]
+            user=f"API Title: {req.api_title}\n\nEndpoints:\n{endpoints_text}",
         )
-        tokens = message.usage.input_tokens + message.usage.output_tokens
         logger.info("generate_docs | tokens_used=%d", tokens)
-        return GenerateResponse(result=message.content[0].text, tokens_used=tokens)
-    except anthropic.APITimeoutError:
-        logger.error("generate_docs | timeout after %.1fs", CLAUDE_TIMEOUT)
-        raise HTTPException(status_code=504, detail="La API de Claude no respondió a tiempo.")
+        return GenerateResponse(result=result, tokens_used=tokens)
+    except LLMTimeoutError:
+        logger.error("generate_docs | timeout")
+        raise HTTPException(status_code=504, detail="El proveedor LLM no respondió a tiempo.")
     except Exception as e:
         logger.error("generate_docs | error=%s", e)
         raise HTTPException(status_code=500, detail="Error interno al generar la documentación.")
